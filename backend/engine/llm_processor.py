@@ -30,9 +30,9 @@ Input Articles JSON: {articles_json}
 
 Task: You are an advanced multilingual news aggregation engine. 
 Action: Analyze the list of headlines and snippets below. 
-1. Cluster articles by EXACT underlying event. It is MANDATORY to merge Israeli (Hebrew) and Global (English) sources if they talk about the same physical event.
-2. Be granular: If two articles talk about different topics, they MUST be in separate clusters. Do not over-generalize.
-3. Every article should ideally belong to a cluster. If an article doesn't match any others, it should be in a cluster by itself.
+1. Cluster articles by EXACT underlying event (e.g. if an Israeli source in Hebrew and a UK source in English both report on the exact same missile strike, merge them).
+2. It is CRITICALLY IMPORTANT to be granular. You MUST output many distinct clusters (usually 10 to 20 different clusters based on the different events in the input). 
+3. NEVER group all articles into 1 or 2 mega-clusters. An event is small and specific (e.g. "IDF strikes target in Damascus", NOT generally "Middle East Conflict").
 Output ONLY a JSON object with a single key `clusters` containing an array of objects.
 Each object must have:
 "average_title_en": (String) Factual neutral English title
