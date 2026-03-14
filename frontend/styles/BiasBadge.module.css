@@ -1,0 +1,29 @@
+.badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm, 4px);
+    font-size: var(--font-tiny);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    white-space: nowrap;
+}
+
+/* Dynamic color coding based on type */
+.location {
+    background: rgba(88, 166, 255, 0.15);
+    color: var(--accent-blue);
+    border: 1px solid rgba(88, 166, 255, 0.3);
+}
+
+.orientation {
+    background: rgba(188, 140, 255, 0.15);
+    color: var(--accent-purple);
+    border: 1px solid rgba(188, 140, 255, 0.3);
+}
+
+.bias {
+    background: rgba(248, 81, 73, 0.15);
+    color: var(--accent-red);
+    border: 1px solid rgba(248, 81, 73, 0.3);
+}
