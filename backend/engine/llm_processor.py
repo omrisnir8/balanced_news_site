@@ -21,7 +21,6 @@ def cluster_and_summarize_articles(articles: List[Dict]) -> List[Dict]:
         "id": i,
         "title": a.get("title"),
         "source": a.get("source"),
-        "snippet": a.get("summary")[:120] if a.get("summary") else "",
         "time": a.get("published_at").strftime("%H:%M") if a.get("published_at") else "Unknown"
     } for i, a in enumerate(articles)], ensure_ascii=False)
     
