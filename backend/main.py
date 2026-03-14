@@ -7,7 +7,7 @@ from database import get_db, init_db, SessionLocal
 from models import Cluster, Article, Source
 from engine.scraper import scrape_all_sources, SOURCES
 from engine.llm_processor import cluster_and_summarize_articles
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import dateutil.parser
 
 app = FastAPI(title="Balanced News Aggregator API")
@@ -112,10 +112,12 @@ def run_refresh_logic():
              refresh_status["message"] = "Scrape finished, but no events found."
              return
 
-        # 3. Atomic Save: Use a single transaction for everything
-        # This prevents the "empty site" window
-        db.query(Article).delete()
-        db.query(Cluster).delete()
+        # 3. Expire: Delete clusters (and their articles) older than 24 hours
+        cutoff_24h = datetime.now(timezone.utc) - timedelta(hours=24)
+        old_clusters = db.query(Cluster).filter(Cluster.created_at < cutoff_24h).all()
+        for c in old_clusters:
+            db.query(Article).filter(Article.cluster_id == c.id).delete(synchronize_session=False)
+        db.query(Cluster).filter(Cluster.created_at < cutoff_24h).delete(synchronize_session=False)
         
         # Ensure sources exist
         for name, meta in SOURCES.items():
@@ -127,7 +129,16 @@ def run_refresh_logic():
                 ))
         db.flush() # Ensure sources are available for lookups
         
+        recent_cutoff = datetime.now(timezone.utc) - timedelta(hours=3)
         for event in clustered_events:
+            # Deduplication guard: skip clusters with the same title created in the last 3 hours
+            existing_cluster = db.query(Cluster).filter(
+                Cluster.average_title_en == event.get("average_title_en", ""),
+                Cluster.created_at > recent_cutoff
+            ).first()
+            if existing_cluster:
+                continue
+
             # Map category to allowed set or default to General News
             cat = event.get("category", "General News")
             if cat not in ["General News", "Economics", "Culture", "Technology", "Geopolitics"]:
@@ -146,6 +157,10 @@ def run_refresh_logic():
             for art in event.get("articles", []):
                 source_rec = db.query(Source).filter(Source.name == art["source"]).first()
                 if source_rec:
+                    # Deduplication: skip article if its URL already exists in the DB
+                    if db.query(Article).filter(Article.original_url == art["url"]).first():
+                        continue
+                    
                     # Fix: Convert ISO string back to datetime object if needed
                     pub_at = art.get("published_at")
                     if isinstance(pub_at, str):
