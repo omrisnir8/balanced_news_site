@@ -22,19 +22,22 @@
   --glass-bg: rgba(255, 255, 255, 0.7);
   --glass-border: 1px solid rgba(0, 0, 0, 0.05);
 
-  /* Typography */
-  --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
-  --font-serif: "New York", "Georgia", serif;
-  --font-title-large: 2.1rem;
-  /* Large Title */
-  --font-headline: 1.1rem;
-  /* Headline */
+  /* Typography - Authentic iOS System Stack */
+  --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", sans-serif;
+  --font-serif: .AppleSystemUIFontSerif, "New York", "Georgia", serif;
+
+  --font-title-large: 2.15rem;
+  /* ~34pt Large Title */
+  --font-headline: 1.15rem;
+  /* ~19pt Emphasized Body */
   --font-body: 1.0rem;
-  /* Body */
-  --font-subhead: 0.9rem;
-  /* Subheadline */
-  --font-footnote: 0.8rem;
-  /* Footnote */
+  /* ~17pt Body */
+  --font-subhead: 0.95rem;
+  /* ~15pt Subhead */
+  --font-footnote: 0.85rem;
+  /* ~13pt Footnote */
+  --font-tiny: 0.7rem;
+  /* ~11pt Caption 2 */
 
   /* Spacing */
   --space-4: 0.25rem;
@@ -43,13 +46,15 @@
   --space-16: 1rem;
   --space-20: 1.25rem;
   --space-24: 1.5rem;
+  --space-32: 2.0rem;
 
   /* UI Elements - Continuous Curves */
   --radius-xs: 8px;
   --radius-sm: 10px;
   --radius-md: 14px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
+  --radius-lg: 24px;
+  /* Matches Apple News card depth */
+  --radius-xl: 32px;
   --radius-full: 9999px;
 
   /* Shadows */

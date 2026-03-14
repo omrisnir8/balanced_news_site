@@ -141,7 +141,7 @@ def run_refresh_logic():
 
             # Map category to allowed set or default to General News
             cat = event.get("category", "General News")
-            if cat not in ["General News", "Economics", "Culture", "Technology", "Geopolitics"]:
+            if cat not in ["General News", "Economics", "Culture", "Technology", "Geopolitics", "Sport", "Science", "Health", "Entertainment"]:
                 cat = "General News"
 
             db_cluster = Cluster(

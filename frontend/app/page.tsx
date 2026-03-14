@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react';
 import ArticleCard, { ClusterProps } from '@/components/ArticleCard';
 import { RefreshCw, Search, Activity } from 'lucide-react';
 
-const CATEGORIES = ["All", "General News", "Economics", "Culture", "Technology", "Geopolitics"];
+const DEFAULT_CATEGORIES = ["All", "General News", "Economics", "Culture", "Technology", "Geopolitics", "Sport", "Science", "Health", "Entertainment"];
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://10.100.102.13:8000/api";
 
 export default function Home() {
@@ -13,9 +13,41 @@ export default function Home() {
   const [refreshing, setRefreshing] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
+  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
+  const [editMode, setEditMode] = useState(false);
   const [language, setLanguage] = useState<"en" | "he" | "native">("en");
   const [startY, setStartY] = useState(0);
   const pollInterval = useRef<NodeJS.Timeout | null>(null);
+
+  // Load custom category order
+  useEffect(() => {
+    const saved = localStorage.getItem('custom_categories');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Merge with any new default categories (in case we added some)
+          const merged = [...new Set([...parsed, ...DEFAULT_CATEGORIES])];
+          setCategories(merged);
+        }
+      } catch (e) {
+        console.error("Failed to parse categories", e);
+      }
+    }
+  }, []);
+
+  const saveCategories = (newList: string[]) => {
+    setCategories(newList);
+    localStorage.setItem('custom_categories', JSON.stringify(newList));
+  };
+
+  const moveCategory = (index: number, direction: 'left' | 'right') => {
+    const newList = [...categories];
+    const newIdx = direction === 'left' ? index - 1 : index + 1;
+    if (newIdx < 0 || newIdx >= newList.length) return;
+    [newList[index], newList[newIdx]] = [newList[newIdx], newList[index]];
+    saveCategories(newList);
+  };
 
   const fetchFeed = async (category = "All") => {
     setLoading(true);
@@ -103,27 +135,44 @@ export default function Home() {
       <header className="header">
         <div className="header-top">
           <h1 className="logo">Balanced News</h1>
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="refresh-icon"
-          >
-            <RefreshCw
-              size={24}
-              className={refreshing ? "animate-spin" : ""}
-            />
-          </button>
+          <div className="header-actions">
+            <button
+              onClick={() => setEditMode(!editMode)}
+              className="edit-btn"
+              style={{ color: editMode ? 'var(--accent-blue)' : 'var(--text-secondary)' }}
+            >
+              {editMode ? 'Done' : 'Edit'}
+            </button>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="refresh-icon"
+            >
+              <RefreshCw
+                size={22}
+                strokeWidth={2.5}
+                className={refreshing ? "animate-spin" : ""}
+              />
+            </button>
+          </div>
         </div>
 
         <nav className="categories-container">
-          {CATEGORIES.map(cat => (
-            <button
-              key={cat}
-              className={`category-tab ${activeCategory === cat ? 'active' : ''}`}
-              onClick={() => setActiveCategory(cat)}
-            >
-              {cat}
-            </button>
+          {categories.map((cat, idx) => (
+            <div key={cat} className="category-item">
+              <button
+                className={`category-tab ${activeCategory === cat ? 'active' : ''}`}
+                onClick={() => !editMode && setActiveCategory(cat)}
+              >
+                {cat}
+              </button>
+              {editMode && (
+                <div className="reorder-tools">
+                  <button onClick={() => moveCategory(idx, 'left')} disabled={idx === 0}>←</button>
+                  <button onClick={() => moveCategory(idx, 'right')} disabled={idx === categories.length - 1}>→</button>
+                </div>
+              )}
+            </div>
           ))}
         </nav>
       </header>
@@ -141,16 +190,17 @@ export default function Home() {
         )}
 
         {loading && !refreshing ? (
-          <div style={{ textAlign: 'center', padding: '100px 40px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-            Updating your perspective...
+          <div className="empty-state">
+            <div className="spinner" />
+            <p>Updating your perspective...</p>
           </div>
         ) : feed.length > 0 ? (
           feed.map(cluster => (
             <ArticleCard key={cluster.id} cluster={cluster} language={language} />
           ))
         ) : (
-          <div style={{ textAlign: 'center', padding: '100px 40px', color: 'var(--text-secondary)' }}>
-            No news found for this category.
+          <div className="empty-state">
+            <p>No news found for this category.</p>
           </div>
         )}
       </main>
@@ -166,6 +216,57 @@ export default function Home() {
          }
          .animate-pulse {
            animation: pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+         }
+
+         .header-actions {
+             display: flex;
+             align-items: center;
+             gap: 16px;
+         }
+
+         .edit-btn {
+             font-size: 0.95rem;
+             font-weight: 600;
+             transition: all 0.2s;
+         }
+
+         .category-item {
+             display: flex;
+             flex-direction: column;
+             align-items: center;
+             gap: 4px;
+         }
+
+         .reorder-tools {
+             display: flex;
+             gap: 8px;
+             font-size: 0.7rem;
+             background: rgba(0,0,0,0.05);
+             border-radius: 4px;
+             padding: 2px 4px;
+         }
+
+         .reorder-tools button {
+             opacity: 0.6;
+         }
+         .reorder-tools button:disabled {
+             opacity: 0.2;
+         }
+
+         .empty-state {
+             text-align: center;
+             padding: 120px 40px;
+             color: var(--text-secondary);
+         }
+
+         .spinner {
+             width: 24px;
+             height: 24px;
+             border: 2px solid rgba(0,0,0,0.1);
+             border-top: 2px solid var(--accent-blue);
+             border-radius: 50%;
+             margin: 0 auto 16px;
+             animation: spin 0.8s linear infinite;
          }
       `}</style>
     </div>

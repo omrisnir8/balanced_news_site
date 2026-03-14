@@ -94,7 +94,7 @@ Output ONLY a JSON object with:
 "average_title_he": (String) Factual neutral Hebrew title
 "comparative_summary_en": (String) 2-3 sentence English summary explaining core facts. Highlight how different sources framed the event if there are discrepancies.
 "comparative_summary_he": (String) Same summary translated into natural Hebrew.
-"category": EXACTLY one of: "General News", "Economics", "Culture", "Technology", "Geopolitics".
+"category": EXACTLY one of: "General News", "Economics", "Culture", "Technology", "Geopolitics", "Sport", "Science", "Health", "Entertainment".
 "article_details": Array of objects updating the input articles:
     - "id": Exact ID from input
     - "title_en": Translated to English (if Hebrew) or identical
