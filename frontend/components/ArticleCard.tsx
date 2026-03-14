@@ -40,22 +40,34 @@ function getInitials(name: string) {
 }
 
 export default function ArticleCard({ cluster, language }: { cluster: ClusterProps, language: "en" | "he" | "native" }) {
-    const isRtl = language === 'he' || (language === 'native' && cluster.titles.he);
-    const displayTitle = (language === 'en') ? cluster.titles.en : cluster.titles.he;
-    const displaySummary = (language === 'en') ? cluster.summaries.en : cluster.summaries.he;
+    // Determine the primary language of the cluster for "Native" mode
+    // We count the sources. If majority are Hebrew sources (heuristic: name or URL patterns)
+    // Actually, we can just check if titles.native matches titles.he or titles.en roughly, 
+    // or better: use the language that matches the first source.
+    const primaryIsHe = cluster.sources[0].political_orientation === "Israeli" || cluster.sources[0].source_name.match(/[א-ת]/);
+
+    const isRtl = language === 'he' || (language === 'native' && primaryIsHe);
+
+    const displayTitle = (language === 'en') || (language === 'native' && !primaryIsHe)
+        ? cluster.titles.en
+        : cluster.titles.he;
+
+    const displaySummary = (language === 'en') || (language === 'native' && !primaryIsHe)
+        ? cluster.summaries.en
+        : cluster.summaries.he;
 
     return (
         <div className={styles.container} dir={isRtl ? 'rtl' : 'ltr'}>
             {/* Level 1 & 2: Headline and Glass Summary Card */}
             <article className={styles.headlineCard}>
                 <div className={styles.headlineLabel}>
-                    {language === 'he' ? 'כותרת ממוצעת:' : 'Average Headline:'}
+                    {isRtl ? 'כותרת ממוצעת:' : 'Average Headline:'}
                 </div>
                 <h2 className={styles.title}>{displayTitle}</h2>
 
                 <div className={styles.summaryCard}>
                     <div className={styles.summaryLabel}>
-                        {language === 'he' ? 'פרספקטיבה השוואתית' : 'Comparative Perspective'}
+                        {isRtl ? 'פרספקטיבה השוואתית' : 'Comparative Perspective'}
                     </div>
                     <p className={styles.summary}>{displaySummary}</p>
                 </div>
@@ -65,7 +77,9 @@ export default function ArticleCard({ cluster, language }: { cluster: ClusterPro
             <div className={styles.sourcesCard}>
                 {cluster.sources.map((source, idx) => {
                     const sourceBias = language === 'he' ? source.bias_warnings.he : source.bias_warnings.en;
-                    const biasText = `${source.political_orientation} • ${source.known_bias}`;
+                    const displayArticleTitle = language === 'native'
+                        ? source.titles.native
+                        : (language === 'he' ? source.titles.he : source.titles.en);
 
                     return (
                         <div key={idx}>
@@ -83,7 +97,7 @@ export default function ArticleCard({ cluster, language }: { cluster: ClusterPro
                                         {source.source_name} • {source.political_orientation}
                                     </div>
                                     <div className={styles.sourceMeta}>
-                                        [{source.source_name}] • {source.political_orientation}
+                                        {displayArticleTitle}
                                     </div>
                                 </div>
                                 <Link2 size={18} className={styles.linkIcon} />
