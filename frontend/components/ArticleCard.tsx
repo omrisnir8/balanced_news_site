@@ -1,7 +1,6 @@
 import React from 'react';
 import styles from '../styles/ArticleCard.module.css';
-import BiasBadge from './BiasBadge';
-import { ExternalLink, Clock } from 'lucide-react';
+import { Link2 } from 'lucide-react';
 
 export interface SourceArticle {
     source_name: string;
@@ -36,33 +35,8 @@ export interface ClusterProps {
     sources: SourceArticle[];
 }
 
-function timeAgo(dateString: string) {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const now = new Date();
-    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-    let interval = seconds / 31536000;
-    if (interval > 1) return Math.floor(interval) + " years ago";
-    interval = seconds / 2592000;
-    if (interval > 1) return Math.floor(interval) + " months ago";
-    interval = seconds / 86400;
-    if (interval > 1) return Math.floor(interval) + " days ago";
-    interval = seconds / 3600;
-    if (interval > 1) return Math.floor(interval) + " hours ago";
-    interval = seconds / 60;
-    if (interval > 1) return Math.floor(interval) + " minutes ago";
-    return Math.floor(seconds) + " seconds ago";
-}
-
-function formatExactHour(dateString?: string) {
-    if (!dateString) return '';
-    try {
-        const date = new Date(dateString);
-        return date.toLocaleTimeString('en-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
-    } catch {
-        return '';
-    }
+function getInitials(name: string) {
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
 export default function ArticleCard({ cluster, language }: { cluster: ClusterProps, language: "en" | "he" | "native" }) {
@@ -71,66 +45,58 @@ export default function ArticleCard({ cluster, language }: { cluster: ClusterPro
     const displaySummary = (language === 'en') ? cluster.summaries.en : cluster.summaries.he;
 
     return (
-        <article className={styles.card} dir={isRtl ? 'rtl' : 'ltr'}>
-            <div className={styles.header}>
-                <div className={styles.meta}>
-                    <span className={styles.category}>{cluster.category}</span>
-                    <span className={styles.timestamp}>
-                        <Clock size={12} className={styles.icon} />
-                        {timeAgo(cluster.timestamp) || 'Just now'}
-                    </span>
+        <div className={styles.container} dir={isRtl ? 'rtl' : 'ltr'}>
+            {/* Level 1 & 2: Headline and Glass Summary Card */}
+            <article className={styles.headlineCard}>
+                <div className={styles.headlineLabel}>
+                    {language === 'he' ? 'כותרת ממוצעת (Heavy Sans):' : 'Average Headline (Heavy Sans):'}
                 </div>
                 <h2 className={styles.title}>{displayTitle}</h2>
-            </div>
 
-            <div className={styles.summaryContainer}>
-                <div className={styles.summaryLabel}>{language === 'he' ? 'סיכום השוואתי' : 'Comparative Summary'}</div>
-                <p className={styles.summary}>{displaySummary}</p>
-            </div>
+                <div className={styles.summaryCard}>
+                    <div className={styles.summaryLabel}>
+                        {language === 'he' ? 'פרספקטיבה השוואתית (SF Pro)' : 'Comparative Perspective (SF Pro)'}
+                    </div>
+                    <p className={styles.summary}>{displaySummary}</p>
+                </div>
+            </article>
 
-            <div className={styles.sourcesSection}>
-                <h3 className={styles.sourcesLabel}>{language === 'he' ? 'מקורות' : 'Sources'} ({cluster.sources.length})</h3>
-                <div className={styles.sourcesList}>
-                    {cluster.sources.map((source, idx) => {
-                        const sourceTitle = language === 'native' ? source.titles.native : language === 'he' ? source.titles.he : source.titles.en;
-                        const sourceBias = language === 'he' ? source.bias_warnings.he : source.bias_warnings.en;
+            {/* Level 3: Sources List Card */}
+            <div className={styles.sourcesCard}>
+                {cluster.sources.map((source, idx) => {
+                    const sourceBias = language === 'he' ? source.bias_warnings.he : source.bias_warnings.en;
+                    const biasText = `${source.political_orientation} • ${source.known_bias}`;
 
-                        return (
+                    return (
+                        <div key={idx}>
                             <a
-                                key={idx}
                                 href={source.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className={styles.sourceItem}
                             >
-                                <div className={styles.sourceMain}>
-                                    <span className={styles.sourceName}>
-                                        {source.source_name}
-                                        {source.published_at && <span style={{ opacity: 0.6, fontWeight: 400, margin: "0 6px" }}>• {formatExactHour(source.published_at)}</span>}
-                                    </span>
-                                    <ExternalLink size={14} className={styles.linkIcon} />
+                                <div className={styles.sourceLogo}>
+                                    {getInitials(source.source_name)}
                                 </div>
-
-                                <h4 style={{ margin: "4px 0 8px 0", fontSize: "0.95rem", fontWeight: 500, color: "var(--text-primary)" }}>
-                                    {sourceTitle}
-                                </h4>
-
-                                <div className={styles.badges}>
-                                    <BiasBadge type="location" text={source.location} />
-                                    <BiasBadge type="orientation" text={source.political_orientation} />
-                                    <BiasBadge type="bias" text={source.known_bias} />
-                                </div>
-                                {sourceBias && (
-                                    <div className={styles.biasWarning}>
-                                        <span className={styles.warningLabel}>{language === 'he' ? 'הערת מנתח:' : 'Analyzer Note:'}</span>
-                                        {sourceBias}
+                                <div className={styles.sourceInfo}>
+                                    <div className={styles.sourceHeader}>
+                                        {source.source_name} • {source.political_orientation}
                                     </div>
-                                )}
+                                    <div className={styles.sourceMeta}>
+                                        [{source.source_name}] • {source.political_orientation}
+                                    </div>
+                                </div>
+                                <Link2 size={18} className={styles.linkIcon} />
                             </a>
-                        );
-                    })}
-                </div>
+                            {sourceBias && (
+                                <div className={styles.biasWarning}>
+                                    {sourceBias}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
-        </article>
+        </div>
     );
 }

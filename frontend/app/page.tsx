@@ -103,11 +103,16 @@ export default function Home() {
       <header className="header">
         <div className="header-top">
           <h1 className="logo">Balanced News</h1>
-          <div className="language-toggle">
-            <button className={language === 'en' ? 'active' : ''} onClick={() => setLanguage('en')}>EN</button>
-            <button className={language === 'he' ? 'active' : ''} onClick={() => setLanguage('he')}>HE</button>
-            <button className={language === 'native' ? 'active' : ''} onClick={() => setLanguage('native')}>NAT</button>
-          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="refresh-icon"
+          >
+            <RefreshCw
+              size={24}
+              className={refreshing ? "animate-spin" : ""}
+            />
+          </button>
         </div>
 
         <nav className="categories-container">
@@ -128,98 +133,39 @@ export default function Home() {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <div className="action-bar">
-          <button
-            className="refresh-button"
-            onClick={handleRefresh}
-            disabled={refreshing}
-          >
-            <RefreshCw
-              size={16}
-              className={refreshing ? "animate-spin" : ""}
-              style={{ animation: refreshing ? "spin 1s linear infinite" : "none" }}
-            />
-            {refreshing ? "AI is working..." : "Refresh Feed"}
-          </button>
-
-          {statusMessage && (
-            <div className="status-indicator">
-              <Activity size={14} className="animate-pulse" />
-              <span>{statusMessage}</span>
-            </div>
-          )}
-        </div>
+        {statusMessage && (
+          <div className="status-indicator">
+            <Activity size={14} className="animate-pulse" />
+            <span>{statusMessage}</span>
+          </div>
+        )}
 
         {loading && !refreshing ? (
-          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
-            Loading latest perspectives...
+          <div style={{ textAlign: 'center', padding: '100px 40px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+            Updating your perspective...
           </div>
         ) : feed.length > 0 ? (
           feed.map(cluster => (
             <ArticleCard key={cluster.id} cluster={cluster} language={language} />
           ))
         ) : (
-          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
-            No news found for this category. Click Refresh to fetch updates.
+          <div style={{ textAlign: 'center', padding: '100px 40px', color: 'var(--text-secondary)' }}>
+            No news found for this category.
           </div>
         )}
       </main>
 
       <style jsx>{`
-         @keyframes spin {
-           from { transform: rotate(0deg); }
-           to { transform: rotate(360deg); }
+         .language-toggle {
+             display: none;
          }
          
-         .action-bar {
-             display: flex;
-             flex-direction: column;
-             gap: 12px;
-             margin-bottom: 20px;
-         }
-
-         .status-indicator {
-             display: flex;
-             align-items: center;
-             gap: 8px;
-             font-size: 0.85rem;
-             color: var(--accent-blue);
-             background: rgba(0, 122, 255, 0.05);
-             padding: 8px 12px;
-             border-radius: var(--radius-md);
-             border: 1px solid rgba(0, 122, 255, 0.1);
-             font-weight: 500;
-         }
-
          @keyframes pulse {
            0%, 100% { opacity: 1; }
-           50% { opacity: 0.5; }
+           50% { opacity: 0.4; }
          }
          .animate-pulse {
-           animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-         }
-
-         .language-toggle {
-             display: flex;
-             background: rgba(255, 255, 255, 0.1);
-             border-radius: var(--radius-sm);
-             padding: 2px;
-             gap: 2px;
-         }
-         .language-toggle button {
-             background: transparent;
-             border: none;
-             color: var(--text-secondary);
-             padding: 6px 10px;
-             font-size: 0.8rem;
-             font-weight: 700;
-             cursor: pointer;
-             border-radius: 4px;
-             transition: all 0.2s;
-         }
-         .language-toggle button.active {
-             background: var(--accent-blue);
-             color: white;
+           animation: pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
          }
       `}</style>
     </div>

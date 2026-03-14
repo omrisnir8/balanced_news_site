@@ -1,56 +1,73 @@
-/* Premium Mobile-First Design System */
+/* Premium iOS Light Mode Design System */
 
 :root {
-  /* Color Palette */
-  --bg-color: #0d1117;
-  --bg-card: #161b22;
-  --bg-card-hover: #1f242c;
-  --text-primary: #f0f6fc;
-  --text-secondary: #8b949e;
-  
+  /* Core Palette */
+  --bg-color: #f2f2f7;
+  /* iOS System Gray 6 */
+  --bg-card: #ffffff;
+  --bg-card-hover: #f9f9f9;
+  --text-primary: #000000;
+  --text-secondary: #8e8e93;
+  /* iOS System Gray */
+
   /* Accent Colors */
-  --accent-blue: #58a6ff;
-  --accent-purple: #bc8cff;
-  --accent-red: #f85149;
-  --accent-green: #3fb950;
-  --accent-orange: #f0883e;
-  
-  /* Gradients */
-  --gradient-primary: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
-  
+  --accent-blue: #007aff;
+  --accent-purple: #af52de;
+  --accent-red: #ff3b30;
+  --accent-green: #34c759;
+  --accent-orange: #ff9500;
+
+  /* Gradients & Special Effects */
+  --gradient-primary: linear-gradient(180deg, var(--accent-blue), #0051ff);
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: 1px solid rgba(0, 0, 0, 0.05);
+
   /* Typography */
-  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-title: 1.25rem; /* 20px */
-  --font-body: 1rem; /* 16px */
-  --font-small: 0.875rem; /* 14px */
-  --font-tiny: 0.75rem; /* 12px */
+  --font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+  --font-serif: "New York", "Georgia", serif;
+  --font-title-large: 2.1rem;
+  /* Large Title */
+  --font-headline: 1.1rem;
+  /* Headline */
+  --font-body: 1.0rem;
+  /* Body */
+  --font-subhead: 0.9rem;
+  /* Subheadline */
+  --font-footnote: 0.8rem;
+  /* Footnote */
 
   /* Spacing */
+  --space-4: 0.25rem;
   --space-8: 0.5rem;
   --space-12: 0.75rem;
   --space-16: 1rem;
+  --space-20: 1.25rem;
   --space-24: 1.5rem;
 
-  /* UI Elements */
-  --radius-md: 12px;
-  --radius-lg: 16px;
+  /* UI Elements - Continuous Curves */
+  --radius-xs: 8px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
   --radius-full: 9999px;
-  --shadow-sm: 0 4px 14px rgba(0,0,0,0.2);
-  --glass-bg: rgba(22, 27, 34, 0.7);
-  --glass-border: 1px solid rgba(240, 246, 252, 0.1);
+
+  /* Shadows */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.05), 0 10px 20px rgba(0, 0, 0, 0.02);
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   font-family: var(--font-family);
   background-color: var(--bg-color);
   color: var(--text-primary);
-  line-height: 1.5;
+  line-height: 1.4;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -65,105 +82,134 @@ button {
   border: none;
   background: none;
   font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 /* Base App Layout */
 .app-container {
-  max-width: 600px;
+  max-width: 500px;
+  /* Tighter for mobile feel */
   margin: 0 auto;
   min-height: 100vh;
   position: relative;
-  overflow-x: hidden;
-  padding-bottom: 80px; /* Space for fixed bottom navigation if added */
+  background-color: var(--bg-color);
 }
 
-/* Glass Header */
+/* iOS Large Title Header */
 .header {
+  padding: 44px var(--space-20) var(--space-12) var(--space-20);
+  background: var(--bg-color);
   position: sticky;
   top: 0;
-  z-index: 50;
-  padding: var(--space-16);
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: var(--glass-border);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-12);
+  z-index: 100;
+  transition: all 0.3s ease;
 }
 
 .header-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: var(--space-8);
 }
 
 .logo {
-  font-size: 1.5rem;
+  font-family: var(--font-serif);
+  font-size: var(--font-title-large);
   font-weight: 800;
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
 }
 
-/* Categories Menu */
+/* Refresh Icon Style */
+.refresh-icon {
+  color: var(--accent-blue);
+  opacity: 0.9;
+  transition: opacity 0.2s;
+}
+
+.refresh-icon:active {
+  opacity: 0.5;
+}
+
+/* Segmented Control for Categories */
 .categories-container {
   display: flex;
   overflow-x: auto;
   gap: var(--space-8);
-  padding-bottom: 4px; /* for scrollbar */
-  scrollbar-width: none; /* Firefox */
+  padding: var(--space-4) 0;
+  scrollbar-width: none;
 }
 
 .categories-container::-webkit-scrollbar {
-  display: none; /* Safari and Chrome */
+  display: none;
 }
 
 .category-tab {
-  padding: 6px 12px;
-  border-radius: var(--radius-full);
-  font-size: var(--font-small);
-  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-subhead);
+  font-weight: 600;
   color: var(--text-secondary);
-  background: rgba(255,255,255,0.05);
+  background: rgba(0, 0, 0, 0.05);
   white-space: nowrap;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .category-tab.active {
   color: #fff;
-  background: var(--gradient-primary);
+  background: var(--text-primary);
 }
 
 /* Article Feed */
 .feed-container {
-  padding: var(--space-16);
+  padding: var(--space-4) var(--space-16) var(--space-24) var(--space-16);
   display: flex;
   flex-direction: column;
-  gap: var(--space-16);
+  gap: var(--space-24);
 }
 
-.refresh-button {
+/* Subtle Progress Indicator */
+.status-indicator {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-8);
-  width: 100%;
+  gap: 8px;
+  font-size: var(--font-footnote);
+  color: var(--text-secondary);
   padding: var(--space-12);
+  font-weight: 500;
+  background: rgba(0, 0, 0, 0.03);
+  margin: 0 var(--space-16) var(--space-16) var(--space-16);
   border-radius: var(--radius-md);
-  background: var(--bg-card);
-  border: var(--glass-border);
-  color: var(--text-primary);
-  font-weight: 600;
-  transition: background 0.2s;
-  margin-bottom: var(--space-8);
 }
 
-.refresh-button:hover {
-    background: var(--bg-card-hover);
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.refresh-button:active {
-    transform: scale(0.98);
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.4;
+  }
 }
