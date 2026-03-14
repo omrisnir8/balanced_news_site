@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import ArticleCard, { ClusterProps } from '@/components/ArticleCard';
-import { RefreshCw, Search } from 'lucide-react';
+import { RefreshCw, Search, Activity } from 'lucide-react';
 
 const CATEGORIES = ["All", "General News", "Economics", "Culture", "Technology", "Geopolitics"];
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://10.100.102.13:8000/api";
@@ -11,9 +11,11 @@ export default function Home() {
   const [feed, setFeed] = useState<ClusterProps[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [statusMessage, setStatusMessage] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
   const [language, setLanguage] = useState<"en" | "he" | "native">("en");
   const [startY, setStartY] = useState(0);
+  const pollInterval = useRef<NodeJS.Timeout | null>(null);
 
   const fetchFeed = async (category = "All") => {
     setLoading(true);
@@ -29,20 +31,56 @@ export default function Home() {
     }
   };
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
+  const pollStatus = async () => {
     try {
-      await fetch(`${API_BASE}/refresh`, { method: "POST" });
-      await fetchFeed(activeCategory);
+      const res = await fetch(`${API_BASE}/status`);
+      const data = await res.json();
+
+      if (data.status === "processing") {
+        setStatusMessage(data.message);
+        setRefreshing(true);
+      } else {
+        setStatusMessage("");
+        setRefreshing(false);
+        if (pollInterval.current) {
+          clearInterval(pollInterval.current);
+          pollInterval.current = null;
+        }
+        fetchFeed(activeCategory);
+      }
+    } catch (err) {
+      console.error("Polling error:", err);
+    }
+  };
+
+  const handleRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    setStatusMessage("Starting refresh...");
+    try {
+      const res = await fetch(`${API_BASE}/refresh`, { method: "POST" });
+      const data = await res.json();
+
+      if (data.status === "processing") {
+        // Start polling
+        if (!pollInterval.current) {
+          pollInterval.current = setInterval(pollStatus, 3000);
+        }
+      }
     } catch (err) {
       console.error("Failed to refresh feed:", err);
-    } finally {
       setRefreshing(false);
+      setStatusMessage("");
     }
   };
 
   useEffect(() => {
     fetchFeed(activeCategory);
+    // Check initial status in case a refresh is already running
+    pollStatus();
+    return () => {
+      if (pollInterval.current) clearInterval(pollInterval.current);
+    };
   }, [activeCategory]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -90,20 +128,29 @@ export default function Home() {
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
       >
-        <button
-          className="refresh-button"
-          onClick={handleRefresh}
-          disabled={refreshing}
-        >
-          <RefreshCw
-            size={16}
-            className={refreshing ? "animate-spin" : ""}
-            style={{ animation: refreshing ? "spin 1s linear infinite" : "none" }}
-          />
-          {refreshing ? "Updating Feed..." : "Refresh Feed"}
-        </button>
+        <div className="action-bar">
+          <button
+            className="refresh-button"
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            <RefreshCw
+              size={16}
+              className={refreshing ? "animate-spin" : ""}
+              style={{ animation: refreshing ? "spin 1s linear infinite" : "none" }}
+            />
+            {refreshing ? "AI is working..." : "Refresh Feed"}
+          </button>
 
-        {loading ? (
+          {statusMessage && (
+            <div className="status-indicator">
+              <Activity size={14} className="animate-pulse" />
+              <span>{statusMessage}</span>
+            </div>
+          )}
+        </div>
+
+        {loading && !refreshing ? (
           <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
             Loading latest perspectives...
           </div>
@@ -124,6 +171,34 @@ export default function Home() {
            to { transform: rotate(360deg); }
          }
          
+         .action-bar {
+             display: flex;
+             flex-direction: column;
+             gap: 12px;
+             margin-bottom: 20px;
+         }
+
+         .status-indicator {
+             display: flex;
+             align-items: center;
+             gap: 8px;
+             font-size: 0.85rem;
+             color: var(--accent-blue);
+             background: rgba(0, 122, 255, 0.05);
+             padding: 8px 12px;
+             border-radius: var(--radius-md);
+             border: 1px solid rgba(0, 122, 255, 0.1);
+             font-weight: 500;
+         }
+
+         @keyframes pulse {
+           0%, 100% { opacity: 1; }
+           50% { opacity: 0.5; }
+         }
+         .animate-pulse {
+           animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+         }
+
          .language-toggle {
              display: flex;
              background: rgba(255, 255, 255, 0.1);
