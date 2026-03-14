@@ -40,11 +40,14 @@ function getInitials(name: string) {
 }
 
 export default function ArticleCard({ cluster, language }: { cluster: ClusterProps, language: "en" | "he" | "native" }) {
+    if (!cluster.sources || cluster.sources.length === 0) {
+        return null; // Skip clusters with no sources
+    }
+
     // Determine the primary language of the cluster for "Native" mode
-    // We count the sources. If majority are Hebrew sources (heuristic: name or URL patterns)
-    // Actually, we can just check if titles.native matches titles.he or titles.en roughly, 
-    // or better: use the language that matches the first source.
-    const primaryIsHe = cluster.sources[0].political_orientation === "Israeli" || cluster.sources[0].source_name.match(/[א-ת]/);
+    const firstSource = cluster.sources[0];
+    const primaryIsHe = (firstSource.political_orientation === "Israeli") ||
+        (!!firstSource.source_name.match(/[א-ת]/));
 
     const isRtl = language === 'he' || (language === 'native' && primaryIsHe);
 
