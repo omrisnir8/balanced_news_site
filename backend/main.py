@@ -60,7 +60,7 @@ def get_feed(category: str = None, db: Session = Depends(get_db)):
                 "political_orientation": article.source.political_orientation,
                 "known_bias": article.source.known_bias,
                 "url": article.original_url,
-                "published_at": article.published_at.isoformat() if article.published_at else None,
+                "published_at": article.published_at.replace(tzinfo=timezone.utc).isoformat() if article.published_at else None,
                 "titles": {
                     "native": article.original_title,
                     "en": article.title_en,

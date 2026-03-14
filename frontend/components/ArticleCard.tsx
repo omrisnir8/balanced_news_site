@@ -42,7 +42,11 @@ function getInitials(name: string) {
 function formatIsraelTime(dateString?: string) {
     if (!dateString) return '';
     try {
-        const date = new Date(dateString);
+        // Force UTC if no timezone offset is present to avoid browser local-time parsing
+        const normalized = dateString.includes('Z') || dateString.includes('+')
+            ? dateString
+            : dateString + 'Z';
+        const date = new Date(normalized);
         return date.toLocaleString('en-IL', {
             hour: '2-digit',
             minute: '2-digit',
