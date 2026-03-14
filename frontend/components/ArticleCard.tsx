@@ -49,13 +49,13 @@ export default function ArticleCard({ cluster, language }: { cluster: ClusterPro
             {/* Level 1 & 2: Headline and Glass Summary Card */}
             <article className={styles.headlineCard}>
                 <div className={styles.headlineLabel}>
-                    {language === 'he' ? 'כותרת ממוצעת (Heavy Sans):' : 'Average Headline (Heavy Sans):'}
+                    {language === 'he' ? 'כותרת ממוצעת:' : 'Average Headline:'}
                 </div>
                 <h2 className={styles.title}>{displayTitle}</h2>
 
                 <div className={styles.summaryCard}>
                     <div className={styles.summaryLabel}>
-                        {language === 'he' ? 'פרספקטיבה השוואתית (SF Pro)' : 'Comparative Perspective (SF Pro)'}
+                        {language === 'he' ? 'פרספקטיבה השוואתית' : 'Comparative Perspective'}
                     </div>
                     <p className={styles.summary}>{displaySummary}</p>
                 </div>
