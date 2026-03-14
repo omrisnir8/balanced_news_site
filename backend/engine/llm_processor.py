@@ -1,12 +1,35 @@
 import os
 import json
+import random
 from typing import List, Dict, Any
 from groq import Groq
-
-# Ensure GROQ_API_KEY is set in the environment
-client = Groq(api_key=os.environ.get("GROQ_API_KEY", "dummy_key_for_testing"))
-
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime
+
+# Initialize a pool of clients from environment variables
+API_KEYS = []
+# Check for GROQ_API_KEY, GROQ_API_KEY_2, GROQ_API_KEY_3, etc.
+env_names = ["GROQ_API_KEY"] + [f"GROQ_API_KEY_{i}" for i in range(2, 11)]
+
+for name in env_names:
+    key = os.environ.get(name)
+    if key and key.startswith("gsk_"):
+        API_KEYS.append(key)
+
+# Deduplicate
+API_KEYS = list(dict.fromkeys(API_KEYS))
+
+# Create a pool of Groq clients
+CLIENTS = [Groq(api_key=key) for key in API_KEYS]
+if not CLIENTS:
+    # Final fallback if absolutely nothing is set
+    fallback_key = os.environ.get("GROQ_API_KEY", "dummy_key")
+    CLIENTS = [Groq(api_key=fallback_key)]
+
+print(f"DEBUG: Initialized AI Engine with {len(CLIENTS)} active API keys.")
+
+def get_random_client():
+    return random.choice(CLIENTS)
 
 def get_cluster_groups(articles: List[Dict]) -> List[List[int]]:
     """Step 1: Fast ID-only Pre-Clustering to reduce payload."""
@@ -28,34 +51,32 @@ Rules:
 Example Output Format: [[0, 2], [1], [3, 4, 5]]
 """
     try:
+        client = get_random_client()
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
-            response_format={"type": "json_object"} if False else None, # Not strictly json object, we want a pure list or {"groups": [...]}
+            response_format={"type": "json_object"},
             messages=[
-                {"role": "system", "content": 'You output simple JSON objects containing one key "groups" mapped to an array of ID arrays.'},
+                {"role": "system", "content": 'You are a grouping agent. You MUST output a JSON object with a "groups" key containing arrays of article IDs.'},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.1,
-            max_tokens=1000,
+            max_tokens=1500,
         )
-        resp = completion.choices[0].message.content.strip()
-        # Fallback parsing in case the LLM gives us a raw array instead of {"groups": ...}
-        if resp.startswith("["):
-             return json.loads(resp)
-        else:
-             parsed = json.loads(resp)
-             return parsed.get("groups", [])
+        resp_content = completion.choices[0].message.content.strip()
+        parsed = json.loads(resp_content)
+        return parsed.get("groups", [[i] for i in range(len(articles))])
     except Exception as e:
         print(f"Grouping error: {e}")
-        # Make a dummy group per article
         return [[i] for i in range(len(articles))]
 
-def process_single_cluster(group_ids: List[int], articles: List[Dict]) -> Dict:
+def process_single_cluster(group_ids: List[int], articles: List[Dict], client_idx: int = 0) -> Dict:
     """Step 2: High-Quality Summarization and Formatting for ONE event cluster."""
     group_articles = [articles[i] for i in group_ids if i < len(articles)]
     if not group_articles: return None
     
-    # Build payload containing both header and summary for the heavy model
+    # Select client based on index to distribute load evenly in parallel threads
+    client = CLIENTS[client_idx % len(CLIENTS)]
+    
     articles_payload = json.dumps([{
         "id": i,
         "title": a.get("title"),
@@ -92,8 +113,7 @@ Output ONLY a JSON object with:
         )
         parsed = json.loads(completion.choices[0].message.content.strip())
         
-        # Hydrate with all original article details + static biases
-        from backend.engine.scraper import SOURCES # Lazy import to avoid circular iff needed
+        from backend.engine.scraper import SOURCES
         
         hydrated_articles = []
         updates = {item.get("id"): item for item in parsed.get("article_details", [])}
@@ -111,12 +131,12 @@ Output ONLY a JSON object with:
             
             if ori and bias:
                 art_obj["bias_warning_en"] = f"{ori} | {bias}"
-                # For a full scale app, translate these static tags too. Standard fallback is OK for now.
                 art_obj["bias_warning_he"] = f"{ori} | {bias}"
             else:
                 art_obj["bias_warning_en"] = "Unknown orientation"
                 art_obj["bias_warning_he"] = "נטייה לא מוגדרת"
             
+            # Use provided string ISO or format if still object
             if isinstance(a.get("published_at"), datetime):
                 art_obj["published_at"] = a["published_at"].isoformat()
             
@@ -135,28 +155,30 @@ Output ONLY a JSON object with:
         print(f"Summarization error: {e}")
         return None
 
-def cluster_and_summarize_articles(articles: List[Dict]) -> List[Dict]:
-    """Master pipeline: Groups statically, then processes in parallel."""
+def cluster_and_summarize_articles(articles: List[Dict], status_callback=None) -> List[Dict]:
+    """Master pipeline: Groups statically, then processes in parallel using multi-keys."""
     if not articles: return []
     
-    print(f"Step 1: Identifying clusters among {len(articles)} articles...")
+    if status_callback: status_callback("AI is grouping 50+ articles into events...")
     groups = get_cluster_groups(articles)
     
-    print(f"Found {len(groups)} distinct events. Step 2: Extracting comparative summaries concurrently...")
+    total_groups = len([g for g in groups if g])
+    if status_callback: status_callback(f"Found {total_groups} events. AI is summarizing each using {len(CLIENTS)} keys...")
     
     final_clusters = []
-    import time
+    completed_count = 0
     
-    # Process sequentially to respect free-tier concurrent connection limits
-    for grp in groups:
-        if not grp:
-            continue
-            
-        res = process_single_cluster(grp, articles)
-        if res:
-            final_clusters.append(res)
-            
-        time.sleep(1.5) # Prevent aggressive multi-request rate limiting
+    with ThreadPoolExecutor(max_workers=min(len(groups), len(CLIENTS) * 2)) as executor:
+        futures = [executor.submit(process_single_cluster, grp, articles, i) for i, grp in enumerate(groups) if grp]
+        
+        for future in as_completed(futures):
+            res = future.result()
+            completed_count += 1
+            if status_callback: 
+                status_callback(f"AI Summarized {completed_count}/{total_groups} events...")
+            if res:
+                final_clusters.append(res)
                 
     return final_clusters
+
 

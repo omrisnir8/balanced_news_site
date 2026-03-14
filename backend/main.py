@@ -100,7 +100,10 @@ def run_refresh_logic(db_session_factory):
         refresh_status["message"] = f"Gathered {len(raw_articles)} articles. AI is clustering events..."
         
         # 2. Cluster
-        clustered_events = cluster_and_summarize_articles(raw_articles)
+        def update_status(msg):
+            refresh_status["message"] = msg
+        
+        clustered_events = cluster_and_summarize_articles(raw_articles, status_callback=update_status)
         refresh_status["clusters_created"] = len(clustered_events)
         refresh_status["message"] = "Saving results to database..."
         
