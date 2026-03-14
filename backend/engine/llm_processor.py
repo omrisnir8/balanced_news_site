@@ -100,60 +100,79 @@ Output ONLY a JSON object with:
     - "title_en": Translated to English (if Hebrew) or identical
     - "title_he": Translated to Hebrew (if English) or identical
 """
-    try:
-        completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": "You are a neutral news synthesis JSON API."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.2,
-            max_tokens=1500,
-        )
-        parsed = json.loads(completion.choices[0].message.content.strip())
-        
-        from backend.engine.scraper import SOURCES
-        
-        hydrated_articles = []
-        updates = {item.get("id"): item for item in parsed.get("article_details", [])}
-        
-        for idx_col, a in zip(group_ids, group_articles):
-            art_obj = dict(a)
-            update = updates.get(idx_col, {})
-            
-            art_obj["title_en"] = update.get("title_en", a["title"])
-            art_obj["title_he"] = update.get("title_he", a["title"])
-            
-            source_meta = SOURCES.get(a["source"], {})
-            ori = source_meta.get("orientation", "")
-            bias = source_meta.get("bias", "")
-            
-            if ori and bias:
-                art_obj["bias_warning_en"] = f"{ori} | {bias}"
-                art_obj["bias_warning_he"] = f"{ori} | {bias}"
-            else:
-                art_obj["bias_warning_en"] = "Unknown orientation"
-                art_obj["bias_warning_he"] = "נטייה לא מוגדרת"
-            
-            # Use provided string ISO or format if still object
-            if isinstance(a.get("published_at"), datetime):
-                art_obj["published_at"] = a["published_at"].isoformat()
-            
-            hydrated_articles.append(art_obj)
-            
-        return {
-            "average_title_en": parsed.get("average_title_en", "Unknown Event"),
-            "average_title_he": parsed.get("average_title_he", "אירוע לא ידוע"),
-            "comparative_summary_en": parsed.get("comparative_summary_en", "No summary available."),
-            "comparative_summary_he": parsed.get("comparative_summary_he", "ללא תקציר"),
-            "category": parsed.get("category", "General News"),
-            "articles": hydrated_articles
-        }
+    max_retries = 3
+    parsed = None
+    for attempt in range(max_retries):
+        try:
+            completion = client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                response_format={"type": "json_object"},
+                messages=[
+                    {"role": "system", "content": "You are a neutral news synthesis JSON API."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.2,
+                max_tokens=2500, # Increased to prevent cutoff
+            )
+            parsed = json.loads(completion.choices[0].message.content.strip())
+            break
+        except Exception as e:
+            if ("Rate limit reached" in str(e) or "429" in str(e)) and attempt < max_retries - 1:
+                wait_time = (attempt + 1) * 3
+                print(f"Rate limit hit for key {client_idx}. Retrying in {wait_time}s...")
+                import time
+                time.sleep(wait_time)
+                continue
+            print(f"Summarization error inside cluster: {e}")
+            return None
 
-    except Exception as e:
-        print(f"Summarization error: {e}")
+    if not parsed:
         return None
+
+    # Selective import to avoid 'No module named backend' in various environments
+    try:
+        from engine.scraper import SOURCES
+    except ImportError:
+        try:
+            from backend.engine.scraper import SOURCES
+        except ImportError:
+            SOURCES = {}
+    
+    hydrated_articles = []
+    updates = {item.get("id"): item for item in parsed.get("article_details", [])}
+    
+    for idx_col, a in zip(group_ids, group_articles):
+        art_obj = dict(a)
+        update = updates.get(idx_col, {})
+        
+        art_obj["title_en"] = update.get("title_en", a["title"])
+        art_obj["title_he"] = update.get("title_he", a["title"])
+        
+        source_meta = SOURCES.get(a["source"], {})
+        ori = source_meta.get("orientation", "")
+        bias = source_meta.get("bias", "")
+        
+        if ori and bias:
+            art_obj["bias_warning_en"] = f"{ori} | {bias}"
+            art_obj["bias_warning_he"] = f"{ori} | {bias}"
+        else:
+            art_obj["bias_warning_en"] = "Unknown orientation"
+            art_obj["bias_warning_he"] = "נטייה לא מוגדרת"
+        
+        # Use provided string ISO or format if still object
+        if isinstance(a.get("published_at"), datetime):
+            art_obj["published_at"] = a["published_at"].isoformat()
+        
+        hydrated_articles.append(art_obj)
+        
+    return {
+        "average_title_en": parsed.get("average_title_en", "Unknown Event"),
+        "average_title_he": parsed.get("average_title_he", "אירוע לא ידוע"),
+        "comparative_summary_en": parsed.get("comparative_summary_en", "No summary available."),
+        "comparative_summary_he": parsed.get("comparative_summary_he", "ללא תקציר"),
+        "category": parsed.get("category", "General News"),
+        "articles": hydrated_articles
+    }
 
 def cluster_and_summarize_articles(articles: List[Dict], status_callback=None) -> List[Dict]:
     """Master pipeline: Groups statically, then processes in parallel using multi-keys."""
