@@ -39,6 +39,23 @@ function getInitials(name: string) {
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
 }
 
+function formatIsraelTime(dateString?: string) {
+    if (!dateString) return '';
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleString('en-IL', {
+            hour: '2-digit',
+            minute: '2-digit',
+            day: '2-digit',
+            month: '2-digit',
+            timeZone: 'Asia/Jerusalem',
+            hour12: false
+        }).replace(',', '');
+    } catch {
+        return '';
+    }
+}
+
 export default function ArticleCard({ cluster, language }: { cluster: ClusterProps, language: "en" | "he" | "native" }) {
     if (!cluster.sources || cluster.sources.length === 0) {
         return null; // Skip clusters with no sources
@@ -98,6 +115,9 @@ export default function ArticleCard({ cluster, language }: { cluster: ClusterPro
                                 <div className={styles.sourceInfo}>
                                     <div className={styles.sourceHeader}>
                                         {source.source_name} • {source.political_orientation}
+                                        <span className={styles.timeStamp}>
+                                            {formatIsraelTime(source.published_at)}
+                                        </span>
                                     </div>
                                     <div className={styles.sourceMeta}>
                                         {displayArticleTitle}

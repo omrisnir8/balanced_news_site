@@ -112,10 +112,26 @@
 .sourceHeader {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 4px;
     font-size: 0.9rem;
     font-weight: 600;
     color: var(--text-primary);
+}
+
+.timeStamp {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--text-secondary);
+    margin-right: auto;
+    padding-right: 8px;
+}
+
+[dir="rtl"] .timeStamp {
+    margin-right: 0;
+    margin-left: auto;
+    padding-right: 0;
+    padding-left: 8px;
 }
 
 .sourceMeta {
