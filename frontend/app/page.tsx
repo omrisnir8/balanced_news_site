@@ -157,6 +157,29 @@ export default function Home() {
           </div>
         </div>
 
+        <div className="header-bottom">
+          <div className="language-selector">
+            <button
+              className={language === 'en' ? 'active' : ''}
+              onClick={() => setLanguage('en')}
+            >
+              English
+            </button>
+            <button
+              className={language === 'he' ? 'active' : ''}
+              onClick={() => setLanguage('he')}
+            >
+              עברית
+            </button>
+            <button
+              className={language === 'native' ? 'active' : ''}
+              onClick={() => setLanguage('native')}
+            >
+              Native
+            </button>
+          </div>
+        </div>
+
         <nav className="categories-container">
           {categories.map((cat, idx) => (
             <div key={cat} className="category-item">
@@ -204,70 +227,95 @@ export default function Home() {
           </div>
         )}
       </main>
-
       <style jsx>{`
-         .language-toggle {
-             display: none;
-         }
-         
-         @keyframes pulse {
-           0%, 100% { opacity: 1; }
-           50% { opacity: 0.4; }
-         }
-         .animate-pulse {
-           animation: pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-         }
+        .header-actions {
+          display: flex;
+          align-items: center;
+          gap: 16px;
+        }
 
-         .header-actions {
-             display: flex;
-             align-items: center;
-             gap: 16px;
-         }
+        .header-bottom {
+          margin-bottom: var(--space-12);
+        }
 
-         .edit-btn {
-             font-size: 0.95rem;
-             font-weight: 600;
-             transition: all 0.2s;
-         }
+        .language-selector {
+          display: flex;
+          background: rgba(0, 0, 0, 0.05);
+          padding: 2px;
+          border-radius: var(--radius-md);
+          gap: 2px;
+        }
 
-         .category-item {
-             display: flex;
-             flex-direction: column;
-             align-items: center;
-             gap: 4px;
-         }
+        .language-selector button {
+          flex: 1;
+          padding: 6px 12px;
+          font-size: 0.85rem;
+          font-weight: 600;
+          border-radius: calc(var(--radius-md) - 2px);
+          color: var(--text-secondary);
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
 
-         .reorder-tools {
-             display: flex;
-             gap: 8px;
-             font-size: 0.7rem;
-             background: rgba(0,0,0,0.05);
-             border-radius: 4px;
-             padding: 2px 4px;
-         }
+        .language-selector button.active {
+          background: var(--bg-card);
+          color: var(--text-primary);
+          box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
 
-         .reorder-tools button {
-             opacity: 0.6;
-         }
-         .reorder-tools button:disabled {
-             opacity: 0.2;
-         }
+        .edit-btn {
+          font-size: 0.95rem;
+          font-weight: 600;
+          transition: all 0.2s;
+        }
 
-         .empty-state {
-             text-align: center;
-             padding: 120px 40px;
-             color: var(--text-secondary);
-         }
+        .category-item {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+        }
 
-         .spinner {
-             width: 24px;
-             height: 24px;
-             border: 2px solid rgba(0,0,0,0.1);
-             border-top: 2px solid var(--accent-blue);
-             border-radius: 50%;
-             margin: 0 auto 16px;
-             animation: spin 0.8s linear infinite;
-         }
+        .reorder-tools {
+          display: flex;
+          gap: 8px;
+          font-size: 0.7rem;
+          background: rgba(0,0,0,0.05);
+          border-radius: 4px;
+          padding: 2px 4px;
+        }
+
+        .reorder-tools button {
+          opacity: 0.6;
+        }
+
+        .reorder-tools button:disabled {
+          opacity: 0.2;
+        }
+
+        .empty-state {
+          text-align: center;
+          padding: 120px 40px;
+          color: var(--text-secondary);
+        }
+
+        .spinner {
+          width: 24px;
+          height: 24px;
+          border: 2px solid rgba(0,0,0,0.1);
+          border-top: 2px solid var(--accent-blue);
+          border-radius: 50%;
+          margin: 0 auto 16px;
+          animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+
+        .animate-pulse {
+          animation: pulse 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+        }
       `}</style>
     </div>
   );
