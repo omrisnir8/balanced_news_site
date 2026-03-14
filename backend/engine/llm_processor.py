@@ -6,111 +6,157 @@ from groq import Groq
 # Ensure GROQ_API_KEY is set in the environment
 client = Groq(api_key=os.environ.get("GROQ_API_KEY", "dummy_key_for_testing"))
 
-def cluster_and_summarize_articles(articles: List[Dict]) -> List[Dict]:
-    """
-    Takes a list of English/Translated articles, identifies similar events,
-    and returns clustered events with an average title and comparative summary.
-    """
-    if not articles:
-        return []
-        
-    # In a full system, we might use embeddings (e.g., SentenceTransformers) to pre-cluster.
-    # For this implementation, we feed a batch to the LLM and ask it to cluster.
-    
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+def get_cluster_groups(articles: List[Dict]) -> List[List[int]]:
+    """Step 1: Fast ID-only Pre-Clustering to reduce payload."""
     articles_json = json.dumps([{
         "id": i,
         "title": a.get("title"),
         "source": a.get("source"),
-        "time": a.get("published_at").strftime("%H:%M") if a.get("published_at") else "Unknown"
     } for i, a in enumerate(articles)], ensure_ascii=False)
     
     prompt = f"""
 Input Articles JSON: {articles_json}
 
-Task: You are an advanced multilingual news aggregation engine. 
-Action: Analyze the list of headlines and snippets below. 
-1. Cluster articles by EXACT underlying event (e.g. if an Israeli source in Hebrew and a UK source in English both report on the exact same missile strike, merge them).
-2. It is CRITICALLY IMPORTANT to be granular. You MUST output many distinct clusters (usually 10 to 20 different clusters based on the different events in the input). 
-3. NEVER group all articles into 1 or 2 mega-clusters. An event is small and specific (e.g. "IDF strikes target in Damascus", NOT generally "Middle East Conflict").
-Output ONLY a JSON object with a single key `clusters` containing an array of objects.
-Each object must have:
+Task: Group similar articles into cohesive events.
+Action: Output ONLY a JSON array of arrays, where each inner array contains the integer IDs of articles reporting on the exact same underlying event (e.g. merge Israeli/Global sources on the same strike).
+Rules:
+1. Be granular. Separate highly diverse topics.
+2. Every article ID from the input MUST appear exactly once in the output.
+3. No descriptions, just arrays of IDs.
+Example Output Format: [[0, 2], [1], [3, 4, 5]]
+"""
+    try:
+        completion = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            response_format={"type": "json_object"} if False else None, # Not strictly json object, we want a pure list or {"groups": [...]}
+            messages=[
+                {"role": "system", "content": 'You output simple JSON objects containing one key "groups" mapped to an array of ID arrays.'},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.1,
+            max_tokens=1000,
+        )
+        resp = completion.choices[0].message.content.strip()
+        # Fallback parsing in case the LLM gives us a raw array instead of {"groups": ...}
+        if resp.startswith("["):
+             return json.loads(resp)
+        else:
+             parsed = json.loads(resp)
+             return parsed.get("groups", [])
+    except Exception as e:
+        print(f"Grouping error: {e}")
+        # Make a dummy group per article
+        return [[i] for i in range(len(articles))]
+
+def process_single_cluster(group_ids: List[int], articles: List[Dict]) -> Dict:
+    """Step 2: High-Quality Summarization and Formatting for ONE event cluster."""
+    group_articles = [articles[i] for i in group_ids if i < len(articles)]
+    if not group_articles: return None
+    
+    # Build payload containing both header and summary for the heavy model
+    articles_payload = json.dumps([{
+        "id": i,
+        "title": a.get("title"),
+        "source": a.get("source"),
+        "time": a.get("published_at").strftime("%H:%M") if a.get("published_at") else "Unknown",
+        "snippet": a.get("summary")[:200] if a.get("summary") else ""
+    } for i, a in zip(group_ids, group_articles)], ensure_ascii=False)
+
+    prompt = f"""
+Event Input JSON (Articles covering the same event): {articles_payload}
+
+Task: Analyze these articles and synthesize a single event report.
+Output ONLY a JSON object with:
 "average_title_en": (String) Factual neutral English title
 "average_title_he": (String) Factual neutral Hebrew title
-"comparative_summary_en": (String) 2-3 sentence English summary explaining core facts and highlighting how different sources framed the event.
+"comparative_summary_en": (String) 2-3 sentence English summary explaining core facts. Highlight how different sources framed the event if there are discrepancies.
 "comparative_summary_he": (String) Same summary translated into natural Hebrew.
 "category": EXACTLY one of: "General News", "Economics", "Culture", "Technology", "Geopolitics".
-"articles": An array of objects representing the articles in this cluster. For EACH article, include:
-   - "article_id": The exact integer ID from the input JSON.
-   - "title_en": (String) The article's title translated to English (if originally Hebrew) or identical (if originally English).
-   - "title_he": (String) The article's title translated to Hebrew (if originally English) or identical (if originally Hebrew).
-   - "bias_warning_en": (String) A one-line bias/framing warning in English based on the publisher and title.
-   - "bias_warning_he": (String) A one-line bias/framing warning in Hebrew.
-
-Return ONLY the JSON. No markdown blocks.
+"article_details": Array of objects updating the input articles:
+    - "id": Exact ID from input
+    - "title_en": Translated to English (if Hebrew) or identical
+    - "title_he": Translated to Hebrew (if English) or identical
 """
-
-    
     try:
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             response_format={"type": "json_object"},
             messages=[
-                {"role": "system", "content": "You are a neutral news aggregation JSON API. You always output valid JSON objects."},
+                {"role": "system", "content": "You are a neutral news synthesis JSON API."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.2,
-            max_tokens=4000,
+            max_tokens=1500,
         )
-        response_text = completion.choices[0].message.content.strip()
+        parsed = json.loads(completion.choices[0].message.content.strip())
         
-        parsed_data = json.loads(response_text)
-        clusters = parsed_data.get("clusters", [])
+        # Hydrate with all original article details + static biases
+        from backend.engine.scraper import SOURCES # Lazy import to avoid circular iff needed
         
-        # Rehydrate clusters with full article objects and bias warnings
-        hydrated_clusters = []
-        for cluster in clusters:
-             matched_articles = []
-             for article_data in cluster.get("articles", []):
-                 idx = article_data.get("article_id")
-                 if isinstance(idx, int) and idx < len(articles):
-                     article_obj = dict(articles[idx]) # copy
-                     article_obj["title_en"] = article_data.get("title_en", "")
-                     article_obj["title_he"] = article_data.get("title_he", "")
-                     article_obj["bias_warning_en"] = article_data.get("bias_warning_en", "")
-                     article_obj["bias_warning_he"] = article_data.get("bias_warning_he", "")
-                     matched_articles.append(article_obj)
-                     
-             if matched_articles: # Only keep non-empty clusters
-                 hydrated_clusters.append({
-                     "average_title_en": cluster.get("average_title_en"),
-                     "average_title_he": cluster.get("average_title_he"),
-                     "comparative_summary_en": cluster.get("comparative_summary_en"),
-                     "comparative_summary_he": cluster.get("comparative_summary_he"),
-                     "articles": matched_articles,
-                     "category": cluster.get("category", "General News")
-                 })
-                 
-        return hydrated_clusters
+        hydrated_articles = []
+        updates = {item.get("id"): item for item in parsed.get("article_details", [])}
+        
+        for idx_col, a in zip(group_ids, group_articles):
+            art_obj = dict(a)
+            update = updates.get(idx_col, {})
+            
+            art_obj["title_en"] = update.get("title_en", a["title"])
+            art_obj["title_he"] = update.get("title_he", a["title"])
+            
+            source_meta = SOURCES.get(a["source"], {})
+            ori = source_meta.get("orientation", "")
+            bias = source_meta.get("bias", "")
+            
+            if ori and bias:
+                art_obj["bias_warning_en"] = f"{ori} | {bias}"
+                # For a full scale app, translate these static tags too. Standard fallback is OK for now.
+                art_obj["bias_warning_he"] = f"{ori} | {bias}"
+            else:
+                art_obj["bias_warning_en"] = "Unknown orientation"
+                art_obj["bias_warning_he"] = "נטייה לא מוגדרת"
+            
+            if isinstance(a.get("published_at"), datetime):
+                art_obj["published_at"] = a["published_at"].isoformat()
+            
+            hydrated_articles.append(art_obj)
+            
+        return {
+            "average_title_en": parsed.get("average_title_en", "Unknown Event"),
+            "average_title_he": parsed.get("average_title_he", "אירוע לא ידוע"),
+            "comparative_summary_en": parsed.get("comparative_summary_en", "No summary available."),
+            "comparative_summary_he": parsed.get("comparative_summary_he", "ללא תקציר"),
+            "category": parsed.get("category", "General News"),
+            "articles": hydrated_articles
+        }
 
-        
     except Exception as e:
-        print(f"Clustering error: {e}")
-        # Fallback for dev/missing keys: Create fake clusters across categories
-        return [
-            {
-                "average_title_en": "Mock Economics Event (Rate Limit Hit)",
-                "average_title_he": "אירוע זיוף (מגבלת קצב)",
-                "comparative_summary_en": "This is a mock summary because the Groq API rate limit was hit. Please wait 1 minute.",
-                "comparative_summary_he": "זהו תקציר זיוף עקב הגבלת קצב",
-                "category": "Economics",
-                "articles": articles[:min(2, len(articles))] # Grab first 2
-            },
-            {
-                "average_title_en": "Mock General News (Rate Limit Hit)",
-                "average_title_he": "אירוע זיוף (מגבלת קצב)",
-                "comparative_summary_en": "This is a mock summary because the Groq API rate limit was hit. Please wait 1 minute.",
-                "comparative_summary_he": "זהו תקציר זיוף עקב הגבלת קצב",
-                "category": "General News",
-                "articles": articles[min(2, len(articles)):min(4, len(articles))]
-            }
-        ]
+        print(f"Summarization error: {e}")
+        return None
+
+def cluster_and_summarize_articles(articles: List[Dict]) -> List[Dict]:
+    """Master pipeline: Groups statically, then processes in parallel."""
+    if not articles: return []
+    
+    print(f"Step 1: Identifying clusters among {len(articles)} articles...")
+    groups = get_cluster_groups(articles)
+    
+    print(f"Found {len(groups)} distinct events. Step 2: Extracting comparative summaries concurrently...")
+    
+    final_clusters = []
+    import time
+    
+    # Process sequentially to respect free-tier concurrent connection limits
+    for grp in groups:
+        if not grp:
+            continue
+            
+        res = process_single_cluster(grp, articles)
+        if res:
+            final_clusters.append(res)
+            
+        time.sleep(1.5) # Prevent aggressive multi-request rate limiting
+                
+    return final_clusters
+
